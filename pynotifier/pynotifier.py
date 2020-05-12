@@ -21,6 +21,7 @@ __all__ = ['Notification']
 
 # standard library
 import platform
+import subprocess
 
 
 # class to run notification
@@ -41,12 +42,12 @@ class Notification:
 			raise ValueError('invalid urgency was given: {}'.format(urgency))
 		self.__WINDOWS = 'Windows'
 		self.__LINUX = 'Linux'
+		self.__MAC_OS = 'Darwin'
 		self.__title = title
 		self.__description = description
 		self.__duration = duration
 		self.__urgency = urgency
 		self.__icon_path = icon_path
-		self.__is_windows = False
 
 	# 'send' - sends notification depending on system
 	def send(self):
@@ -55,12 +56,13 @@ class Notification:
 			self.__send_linux()
 		elif self.__WINDOWS in system:
 			self.__send_windows()
+		elif self.__MAC_OS in system:
+			self.__send_mac_os()
 		else:
 			raise SystemError('notifications are not supported for {} system'.format(system))
 
 	# '__send_linux' - sends notification if running on Linux system
 	def __send_linux(self):
-		import subprocess
 		command = [
 			'notify-send', '{}'.format(self.__title),
 			'{}'.format(self.__description),
@@ -84,3 +86,37 @@ class Notification:
 			)
 		except ImportError:
 			raise ImportError('notifications are not supported, can\'t import necessary library')
+
+	# '__send_mac_os' - sends notification if running on MacOS system
+	def __send_mac_os(self):
+		"""MacOS does not support arguments for:
+			- Urgency
+			- Duration
+			- Icon (in applescript. Doable in objective-c)
+		Optional ruby binary dependency `alerter` provides all of these.
+		"""
+		from shutil import which
+		command = []
+		if which('alerter'):
+			# Use alerter for feature parody
+			command = [
+				'alerter',
+				'-message', self.__description,
+				'-title', self.__title,
+				'-timeout', self.__duration,
+			]
+			if self.__icon_path is not None:
+				command += ['-appIcon', self.__icon_path]
+		else:
+			# Fall back to basic notification
+			sub_command = (
+				'display notification '
+				'"{}"'
+				' with title '
+				'"{}"'.format(self.__description, self.__title)
+			)
+			command = [
+				'osascript', 
+				'-e', sub_command
+			]
+		subprocess.call(command)
